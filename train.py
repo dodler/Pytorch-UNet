@@ -5,6 +5,8 @@ import torch.nn as nn
 
 import vis
 
+from utils import dense_crf
+
 from utils import *
 from myloss import DiceLoss
 from eval import eval_net
@@ -17,13 +19,16 @@ import os
 import os.path as osp
 from torch.nn import Upsample
 
-gpu_id = 1 # id of device
+from config import gpu_id
+from config import DATA
+
+print(gpu_id)
+print(DATA)
 
 def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
               cp=True, gpu=False):
-    DATA = '/home/dhc/nevus_masks/train/'
     dir_img = osp.join(DATA,'images/')
-    dir_mask = osp.join(DATA, 'masks/')
+    dir_mask = osp.join(DATA, 'mask/')
     dir_checkpoint = 'checkpoints/'
 
     ids = get_ids(dir_img)
@@ -52,16 +57,21 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
                           lr=lr, momentum=0.9, weight_decay=0.0005)
     criterion = nn.BCELoss()
 
+    epoch_dices = []
+    epoch_losses = []
+    epochs_p = []
+
     for epoch in range(epochs):
         print('Starting epoch {}/{}.'.format(epoch+1, epochs))
         train = get_imgs_and_masks(iddataset['train'], dir_img, dir_mask)
         val = get_imgs_and_masks(iddataset['val'], dir_img, dir_mask)
 
         epoch_loss = 0
-
-        if 1:
-            val_dice = eval_net(net, val, gpu)
-            print('Validation Dice Coeff: {}'.format(val_dice))
+        it_losses = []
+        its = []
+#        if 1:
+#            val_dice = eval_net(net, val, gpu)
+#            print('Validation Dice Coeff: {}'.format(val_dice))
 
         for i, b in enumerate(batch(train, batch_size)):
             X = np.array([i[0] for i in b])
@@ -77,20 +87,29 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
                 X = Variable(X)
                 y = Variable(y)
 
-#            X = interp(X)
-#            y = interp(y)
             y_pred = net(X)
-            print(y_pred.size())
+
             probs = F.sigmoid(y_pred)
             probs_flat = probs.view(-1)
 
             if i % 50 == 0:
-                vis.show(probs>0.4.view((1,512,512)).cpu().data.numpy()[0], y[0], 'unet')
+                img = X.data.squeeze(0).cpu().numpy()[0]
+#                img = np.transpose(img, axes=[1, 2, 0])
+                mask = y.data.squeeze(0).cpu().numpy()[0]
+                pred = (F.sigmoid(y_pred) > 0.8).float().data.squeeze(0).cpu().numpy()[0]
+#                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
+                vis.show(img, mask, pred, 'image - mask - predict - densecrf')
 
             y_flat = y.view(-1)
 
             loss = criterion(probs_flat, y_flat.float())
             epoch_loss += loss.data[0]
+
+            it_losses.append(loss.data[0])
+
+            its.append(i)
+
+            vis.plot_loss(np.array(its), np.array(it_losses), 'iteration losses')
 
             print('{0:.4f} --- loss: {1:.6f}'.format(i*batch_size/N_train,
                                                      loss.data[0]))
@@ -102,6 +121,16 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
             optimizer.step()
 
         print('Epoch finished ! Loss: {}'.format(epoch_loss/i))
+
+        epochs_p.append(e)
+        epoch_losses.append(np.mean(np.array(it_losses)))
+        vis.plot_loss(np.array(epochs_p), np.array(epoch_losses), 'epoch losses')
+
+        val_dice = eval_net(net, val, gpu)
+
+        vis.plot_loss(epoch_dices, 'epoch dices')
+        print('Validation Dice Coeff: {}'.format(val_dice))
+
 
         if cp:
             torch.save(net.state_dict(),
@@ -128,8 +157,8 @@ if __name__ == '__main__':
     net = UNet(3, 1)
 
 #    if options.load:
-    net.load_state_dict(torch.load('INTERRUPTED.pth'))
-    print('Model loaded from {}'.format('interrupted.pth'))
+#    net.load_state_dict(torch.load('INTERRUPTED.pth'))
+#    print('Model loaded from {}'.format('interrupted.pth'))
 
     if options.gpu:
         net.cuda(gpu_id)

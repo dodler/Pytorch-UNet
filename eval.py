@@ -9,7 +9,8 @@ from utils import dense_crf, plot_img_mask
 
 import vis
 
-gpu_id = 1
+from config import gpu_id
+from config import DATA
 
 def eval_net(net, dataset, gpu=False):
     tot = 0
@@ -29,10 +30,9 @@ def eval_net(net, dataset, gpu=False):
 
         y_pred = net(X)
 
-        y_pred = (F.sigmoid(y_pred) > 0.6).float()
-
-        if i % 50 == 0:
-            vis.show(y_pred.view((1,512,512)).cpu().data.numpy()[0], y.view((1,512,512)).cpu().data.numpy()[0], 'unet')
+        y_pred = (F.sigmoid(y_pred) > 0.3).float()
+#        print(y_pred.size())
+#        print(y.size())
 
         dice = dice_coeff(y_pred, y.float()).data[0]
         tot += dice
