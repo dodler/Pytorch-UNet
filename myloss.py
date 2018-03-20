@@ -34,20 +34,40 @@ class DiceCoeff(Function):
 
         return grad_input, grad_target
 
+def dice_coeff(pred, target):
+    smooth = 1.
+    num = pred.size(0)
+    m1 = pred.view(num, -1)  # Flatten
+    m2 = target.view(num, -1)  # Flatten
+    intersection = (m1 * m2).sum()
 
-def dice_coeff(input, target):
-    """Dice coeff for batches"""
-    if input.is_cuda:
-        s = Variable(torch.FloatTensor(1).cuda().zero_())
-    else:
-        s = Variable(torch.FloatTensor(1).zero_())
+    return (2. * intersection + smooth) / (m1.sum() + m2.sum() + smooth)
 
-    for i, c in enumerate(zip(input, target)):
-        s = s + DiceCoeff().forward(c[0], c[1])
+def dice_loss(input, target):
+    smooth = 1.
 
-    return s / (i+1)
+    iflat = input.view(-1)
+    tflat = target.view(-1)
+    intersection = (iflat * tflat).sum()
+    
+    return 1 - ((2. * intersection + smooth) /
+              (iflat.sum() + tflat.sum() + smooth))
+
+
+#def dice_coeff(input, target):
+#    """Dice coeff for batches"""
+#    if input.is_cuda:
+#        s = Variable(torch.FloatTensor(1).cuda().zero_())
+#    else:
+#        s = Variable(torch.FloatTensor(1).zero_())#
+
+#    for i, c in enumerate(zip(input, target)):
+#        s = s + DiceCoeff().forward(c[0], c[1])
+
+#    return s / (i+1)
 
 
 class DiceLoss(_Loss):
     def forward(self, input, target):
-        return 1 - dice_coeff(F.sigmoid(input), target)
+        return dice_loss(input,target)
+#        return 1 - dice_coeff(F.sigmoid(input), target)

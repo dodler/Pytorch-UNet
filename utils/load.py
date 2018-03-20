@@ -37,11 +37,11 @@ def get_imgs_and_masks(ids, dir_img, dir_mask):
     imgs_switched = map(partial(np.transpose, axes=[2, 0, 1]), imgs)
     imgs_normalized = map(normalize, imgs_switched)
 
-    masks = to_cropped_imgs(ids, dir_mask, '_mask.gif')
+    masks = to_cropped_imgs(ids, dir_mask, '_segmentation.png')
 
     return zip(imgs_normalized, masks)
 
 def get_full_img_and_mask(id, dir_img, dir_mask):
     im = Image.open(dir_img + id + '.jpg')
-    mask = Image.open(dir_mask + id + '_mask.gif')
+    mask = Image.open(dir_mask + id + '_segmentation.png')
     return np.array(im), np.array(mask)

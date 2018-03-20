@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 #quit after interrupt
 import sys
 
-
+gpu = 1
 
 dir = 'data'
 ids = []
@@ -35,7 +35,7 @@ np.random.shuffle(ids)
 
 
 net = UNet(3, 1)
-net.cuda()
+net.cuda(gpu)
 
 def train(net):
     optimizer = optim.Adam(net.parameters(), lr=1)
@@ -67,10 +67,10 @@ def train(net):
 
 
             X = np.transpose(X, axes=[2, 0, 1])
-            X = torch.FloatTensor(X / 255).unsqueeze(0).cuda()
-            y = Variable(torch.ByteTensor(y)).cuda()
+            X = torch.FloatTensor(X / 255).unsqueeze(0).cuda(gpu)
+            y = Variable(torch.ByteTensor(y)).cuda(gpu)
 
-            X = Variable(X).cuda()
+            X = Variable(X).cuda(gpu)
 
             optimizer.zero_grad()
 

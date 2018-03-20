@@ -11,6 +11,8 @@ from utils import *
 
 from unet import UNet
 
+gpu = 1
+
 
 def predict_img(net, full_img, gpu=False):
     img = resize_and_crop(full_img)
@@ -28,8 +30,8 @@ def predict_img(net, full_img, gpu=False):
     X_r = torch.FloatTensor(right).unsqueeze(0)
 
     if gpu:
-        X_l = Variable(X_l, volatile=True).cuda()
-        X_r = Variable(X_r, volatile=True).cuda()
+        X_l = Variable(X_l, volatile=True).cuda(gpu)
+        X_r = Variable(X_r, volatile=True).cuda(gpu)
     else:
         X_l = Variable(X_l, volatile=True)
         X_r = Variable(X_r, volatile=True)
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     net = UNet(3, 1)
     if not args.cpu:
         print("Using CUDA version of the net, prepare your GPU !")
-        net.cuda()
+        net.cuda(gpu)
     else:
         net.cpu()
         print("Using CPU version of the net, this may be very slow")

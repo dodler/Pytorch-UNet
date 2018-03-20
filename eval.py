@@ -7,6 +7,9 @@ import torch.nn.functional as F
 
 from utils import dense_crf, plot_img_mask
 
+import vis
+
+gpu_id = 1
 
 def eval_net(net, dataset, gpu=False):
     tot = 0
@@ -18,8 +21,8 @@ def eval_net(net, dataset, gpu=False):
         y = torch.ByteTensor(y).unsqueeze(0)
 
         if gpu:
-            X = Variable(X, volatile=True).cuda()
-            y = Variable(y, volatile=True).cuda()
+            X = Variable(X, volatile=True).cuda(gpu_id)
+            y = Variable(y, volatile=True).cuda(gpu_id)
         else:
             X = Variable(X, volatile=True)
             y = Variable(y, volatile=True)
@@ -27,7 +30,9 @@ def eval_net(net, dataset, gpu=False):
         y_pred = net(X)
 
         y_pred = (F.sigmoid(y_pred) > 0.6).float()
-        # y_pred = F.sigmoid(y_pred).float()
+
+        if i % 50 == 0:
+            vis.show(y_pred.view((1,512,512)).cpu().data.numpy()[0], y.view((1,512,512)).cpu().data.numpy()[0], 'unet')
 
         dice = dice_coeff(y_pred, y.float()).data[0]
         tot += dice
@@ -37,7 +42,6 @@ def eval_net(net, dataset, gpu=False):
             X = np.transpose(X, axes=[1, 2, 0])
             y = y.data.squeeze(0).cpu().numpy()
             y_pred = y_pred.data.squeeze(0).squeeze(0).cpu().numpy()
-            print(y_pred.shape)
 
             fig = plt.figure()
             ax1 = fig.add_subplot(1, 4, 1)

@@ -24,9 +24,10 @@ def resize_and_crop(pilimg, scale=0.5, final_height=None):
     else:
         diff = newH - final_height
 
-    img = pilimg.resize((newW, newH))
-    img = img.crop((0, diff // 2, newW, newH - diff // 2))
-    return img
+#    img = pilimg.resize((newW, newH))
+#    img = img.crop((0, diff // 2, newW, newH - diff // 2))
+    return pilimg.resize((512,512))
+#    return img
 
 
 def batch(iterable, batch_size):
@@ -103,7 +104,8 @@ def decode(list):
         if(i%2 == 0):
             mask[e-1:e-2+list[i+1]] = True
 
-    mask = mask.reshape(1920, 1280).transpose()
+#   mask = mask.reshape(1920, 1280).transpose()
+    mask = mask.reshape(1024, 768).transpose()
 
     return mask
 

@@ -3,6 +3,8 @@ import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 import torch.nn as nn
 
+import vis
+
 from utils import *
 from myloss import DiceLoss
 from eval import eval_net
@@ -12,12 +14,16 @@ from torch import optim
 from optparse import OptionParser
 import sys
 import os
+import os.path as osp
+from torch.nn import Upsample
 
+gpu_id = 1 # id of device
 
-def train_net(net, epochs=5, batch_size=2, lr=0.1, val_percent=0.05,
+def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
               cp=True, gpu=False):
-    dir_img = 'data/train/'
-    dir_mask = 'data/train_masks/'
+    DATA = '/home/dhc/nevus_masks/train/'
+    dir_img = osp.join(DATA,'images/')
+    dir_mask = osp.join(DATA, 'masks/')
     dir_checkpoint = 'checkpoints/'
 
     ids = get_ids(dir_img)
@@ -65,15 +71,21 @@ def train_net(net, epochs=5, batch_size=2, lr=0.1, val_percent=0.05,
             y = torch.ByteTensor(y)
 
             if gpu:
-                X = Variable(X).cuda()
-                y = Variable(y).cuda()
+                X = Variable(X).cuda(gpu_id)
+                y = Variable(y).cuda(gpu_id)
             else:
                 X = Variable(X)
                 y = Variable(y)
 
+#            X = interp(X)
+#            y = interp(y)
             y_pred = net(X)
+            print(y_pred.size())
             probs = F.sigmoid(y_pred)
             probs_flat = probs.view(-1)
+
+            if i % 50 == 0:
+                vis.show(probs>0.4.view((1,512,512)).cpu().data.numpy()[0], y[0], 'unet')
 
             y_flat = y.view(-1)
 
@@ -93,21 +105,21 @@ def train_net(net, epochs=5, batch_size=2, lr=0.1, val_percent=0.05,
 
         if cp:
             torch.save(net.state_dict(),
-                       dir_checkpoint + 'CP{}.pth'.format(epoch+1))
+                       dir_checkpoint + 'CP{}_loss{}.pth'.format(epoch+1, loss.data[0]))
 
             print('Checkpoint {} saved !'.format(epoch+1))
 
 
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option('-e', '--epochs', dest='epochs', default=5, type='int',
+    parser.add_option('-e', '--epochs', dest='epochs', default=30, type='int',
                       help='number of epochs')
-    parser.add_option('-b', '--batch-size', dest='batchsize', default=10,
+    parser.add_option('-b', '--batch-size', dest='batchsize', default=4,
                       type='int', help='batch size')
-    parser.add_option('-l', '--learning-rate', dest='lr', default=0.1,
+    parser.add_option('-l', '--learning-rate', dest='lr', default=1e-3,
                       type='float', help='learning rate')
     parser.add_option('-g', '--gpu', action='store_true', dest='gpu',
-                      default=False, help='use cuda')
+                      default=True, help='use cuda')
     parser.add_option('-c', '--load', dest='load',
                       default=False, help='load file model')
 
@@ -115,12 +127,12 @@ if __name__ == '__main__':
 
     net = UNet(3, 1)
 
-    if options.load:
-        net.load_state_dict(torch.load(options.load))
-        print('Model loaded from {}'.format(options.load))
+#    if options.load:
+    net.load_state_dict(torch.load('INTERRUPTED.pth'))
+    print('Model loaded from {}'.format('interrupted.pth'))
 
     if options.gpu:
-        net.cuda()
+        net.cuda(gpu_id)
         cudnn.benchmark = True
 
     try:
