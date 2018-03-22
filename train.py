@@ -59,6 +59,7 @@ dataset.set_mode('val')
 val_len = len(dataset)
 dataset.set_mode('train')
 
+
 def data_parallel(module, input, device_ids, output_device=None):
     if not device_ids:
         return module(input)
@@ -71,6 +72,10 @@ def data_parallel(module, input, device_ids, output_device=None):
     replicas = replicas[:len(inputs)]
     outputs = nn.parallel.parallel_apply(replicas, inputs)
     return nn.parallel.gather(outputs, output_device)
+
+
+upsample = torch.nn.Upsample(size=(RESIZE_TO, RESIZE_TO))
+
 
 def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
     print('''
@@ -105,12 +110,12 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
                 X = Variable(X)
                 y = Variable(y)
 
-            probs = F.sigmoid(net(X))
+            probs = upsample(F.sigmoid(net(X)))
             probs_flat = probs.view(-1)
 
             y_flat = y.view(-1)
 
-            display_every_iter(i ,X , y, probs, watch.get_vis())
+            display_every_iter(i, X, y, probs, watch.get_vis())
             loss = criterion(probs_flat, y_flat.float())
 
             watch.add_value(PER_ITER_LOSS, loss.cpu().data[0])
