@@ -77,7 +77,6 @@ class InMemoryImgSegmDataset(Dataset):
             img = cv2.imread(im_p).astype(np.float32)
             self._test_images.append(img.copy())
             m_p = osp.join(self._path, self._mask_path, base_name + '.png')
-            print(m_p)
             mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32)
             mask[mask == 29] = 1
             self._test_masks.append(mask)
@@ -109,7 +108,6 @@ class InMemoryImgDataset(Dataset):
         return self.__getitemfrom__(index, self._mode)
 
     def __load__(self):
-        print('i m thread')
         self.train, self.test = train_test_split(self._img_paths)
         self._train_images = []
         self._test_images = []
