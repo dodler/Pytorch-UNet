@@ -59,6 +59,18 @@ dataset.set_mode('val')
 val_len = len(dataset)
 dataset.set_mode('train')
 
+def data_parallel(module, input, device_ids, output_device=None):
+    if not device_ids:
+        return module(input)
+
+    if output_device is None:
+        output_device = device_ids[0]
+
+    replicas = nn.parallel.replicate(module, device_ids)
+    inputs = nn.parallel.scatter(input, device_ids)
+    replicas = replicas[:len(inputs)]
+    outputs = nn.parallel.parallel_apply(replicas, inputs)
+    return nn.parallel.gather(outputs, output_device)
 
 def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
     print('''
@@ -87,8 +99,8 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
             y = b[1]
 
             if gpu and torch.cuda.is_available():
-                X = Variable(X).cuda()
-                y = Variable(y).cuda()
+                X = Variable(X).cuda(gpu_id[0])
+                y = Variable(y).cuda(gpu_id[0])
             else:
                 X = Variable(X)
                 y = Variable(y)
@@ -115,9 +127,10 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
         print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
 
         watch.output()
-
         dataset.set_mode('val')
-        val_dice = eval_net(net, dataset, gpu)
+ #       net.eval()
+#        val_dice = eval_net(net, dataset, gpu)
+  #      net.train()
 
         print('Validation Dice Coeff: {}'.format(val_dice))
 
@@ -145,17 +158,14 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    if options.gpu and torch.cuda.is_available() and len(gpu_id) > 1:
-        net = torch.nn.DataParallel(UNet(3, 1)).cuda()
-    else:
-        net = UNet(3, 1)
+    net = nn.DataParallel(UNet(3, 1), device_ids=gpu_id)
 
     if options.restore:
         net.load_state_dict(torch.load('INTERRUPTED.pth'))
         print('Model loaded from {}'.format('interrupted.pth'))
 
     if options.gpu and torch.cuda.is_available():
-        net.cuda(gpu_id[0])
+        net.cuda()
         cudnn.benchmark = True
 
     try:

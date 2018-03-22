@@ -9,6 +9,7 @@ from config import USE_MATPLOTLIB_VIS
 from myloss import dice_coeff
 from utils import dense_crf
 
+from config import gpu_id
 
 def eval_net(net, dataset, gpu=False):
     tot = 0
@@ -20,8 +21,8 @@ def eval_net(net, dataset, gpu=False):
         y = torch.ByteTensor(y).unsqueeze(0)
 
         if gpu:
-            X = Variable(X, volatile=True).cuda()
-            y = Variable(y, volatile=True).cuda()
+            X = Variable(X, volatile=True).cuda(gpu_id[0])
+            y = Variable(y, volatile=True).cuda(gpu_id[0])
         else:
             X = Variable(X, volatile=True)
             y = Variable(y, volatile=True)
