@@ -110,7 +110,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
                 X = Variable(X)
                 y = Variable(y)
 
-            probs = upsample(F.sigmoid(net(X)))
+            probs = F.sigmoid(upsample(net(X)))
             probs_flat = probs.view(-1)
 
             y_flat = y.view(-1)

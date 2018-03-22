@@ -1,4 +1,5 @@
 import torch.nn.functional as F
+from utils import *
 
 
 def display_every_iter(iter_num, X, gt, prediction, vis):
@@ -12,3 +13,4 @@ def display_every_iter(iter_num, X, gt, prediction, vis):
         vis.image(img, opts=dict(title='source image'))
         vis.image(mask, opts=dict(title='gt'))
         vis.image(pred, opts=dict(title='prediction'))
+        # yy = dense_crf(np.array(prediction).astype(np.uint8), y)
