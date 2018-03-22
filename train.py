@@ -128,9 +128,9 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
 
         watch.output()
         dataset.set_mode('val')
- #       net.eval()
-#        val_dice = eval_net(net, dataset, gpu)
-  #      net.train()
+        net.eval()
+        val_dice = eval_net(net, dataset, gpu)
+        net.train()
 
         print('Validation Dice Coeff: {}'.format(val_dice))
 
