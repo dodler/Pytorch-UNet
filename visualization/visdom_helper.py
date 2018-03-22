@@ -8,4 +8,7 @@ def display_every_iter(iter_num, X, gt, prediction, vis):
         mask = gt.data.squeeze(0).cpu().numpy()[0]
         pred = (prediction > 0.6).float().data.squeeze(0).cpu().numpy()[0]
         #                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
-        vis.show(img, mask, pred, 'image - mask - predict - densecrf')
+
+        vis.image(img, opts=dict(title='source image'))
+        vis.image(mask, opts=dict(title='gt'))
+        vis.image(pred, opts=dict(title='prediction'))
