@@ -24,6 +24,7 @@ from utils.dualcrop import DualRotatePadded
 from utils.abstract import DualCompose, Dualized
 from utils.dataset import InMemoryImgSegmDataset
 from utils.abstract import ImageOnly
+from utils.util_transform import DualResize, DualToTensor
 
 print(gpu_id)
 print(DATA)
@@ -32,14 +33,14 @@ rgb_mean = (0.4914, 0.4822, 0.4465)
 rgb_std = (0.2023, 0.1994, 0.2010)
 
 train_transform = DualCompose([
-    Dualized(Resize((RESIZE_TO, RESIZE_TO))),
+    DualResize((RESIZE_TO, RESIZE_TO)),
     DualRotatePadded(30),
-    Dualized(ToTensor()),
+    DualToTensor(),
     ImageOnly(Normalize(rgb_mean, rgb_std))])
 
 test_transform = DualCompose([
-    Dualized(Resize((RESIZE_TO, RESIZE_TO))),
-    Dualized(ToTensor()),
+    DualResize((RESIZE_TO, RESIZE_TO)),
+    DualToTensor(),
     ImageOnly(Normalize(rgb_mean, rgb_std))
 ])
 
@@ -81,47 +82,44 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
         epoch_loss = 0
         it_losses = []
         its = []
-        #        if 1:
-        #            val_dice = eval_net(net, val, gpu)
-        #            print('Validation Dice Coeff: {}'.format(val_dice))
         dataset.set_mode('train')
-        for i, b in tqdm(loader):
-            X = np.array([i[0] for i in b])
-            y = np.array([i[1] for i in b])
+        for i, b in tqdm(enumerate(loader)):
+            print('batch',len(b))
 
-            X = torch.FloatTensor(X)
-            y = torch.ByteTensor(y)
+            X = b[0]
+            y = b[1]
 
-            if gpu:
+            if gpu and torch.cuda.is_available():
                 X = Variable(X).cuda(gpu_id)
                 y = Variable(y).cuda(gpu_id)
             else:
                 X = Variable(X)
                 y = Variable(y)
 
+            print('doing forward')
             y_pred = net(X)
 
             probs = F.sigmoid(y_pred)
             probs_flat = probs.view(-1)
 
-            if i % 50 == 0:
-                img = X.data.squeeze(0).cpu().numpy()[0]
-                #                img = np.transpose(img, axes=[1, 2, 0])
-                mask = y.data.squeeze(0).cpu().numpy()[0]
-                pred = (F.sigmoid(y_pred) > 0.8).float().data.squeeze(0).cpu().numpy()[0]
-                #                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
-                vis.show(img, mask, pred, 'image - mask - predict - densecrf')
+            # if i % 50 == 0:
+            #     img = X.data.squeeze(0).cpu().numpy()[0]
+            #     #                img = np.transpose(img, axes=[1, 2, 0])
+            #     mask = y.data.squeeze(0).cpu().numpy()[0]
+            #     pred = (F.sigmoid(y_pred) > 0.8).float().data.squeeze(0).cpu().numpy()[0]
+            #     #                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
+            #     vis.show(img, mask, pred, 'image - mask - predict - densecrf')
 
             y_flat = y.view(-1)
 
             loss = criterion(probs_flat, y_flat.float())
-            epoch_loss += loss.data[0]
+            # epoch_loss += loss.data[0]
 
-            it_losses.append(loss.data[0])
+            # it_losses.append(loss.data[0])
 
-            its.append(i)
+            # its.append(i)
 
-            vis.plot_loss(np.array(its), np.array(it_losses), 'iteration losses')
+            # vis.plot_loss(np.array(its), np.array(it_losses), 'iteration losses')
 
             print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / N_train,
                                                      loss.data[0]))
@@ -141,7 +139,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
         dataset.set_mode('val')
         val_dice = eval_net(net, dataset, gpu)
 
-        vis.plot_loss(epoch_dices, 'epoch dices')
+        # vis.plot_loss(epoch_dices, 'epoch dices')
         print('Validation Dice Coeff: {}'.format(val_dice))
 
         if cp:

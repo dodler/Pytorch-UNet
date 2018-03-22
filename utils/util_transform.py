@@ -4,8 +4,8 @@ import cv2
 
 class DualToTensor(object):
     def __call__(self, img, mask):
-        return torch.from_numpy(img), \
-               torch.from_numpy(mask)
+        img_tensor = torch.from_numpy(img[:, :, (2, 1, 0)]).permute(2, 0, 1)
+        return img_tensor, torch.from_numpy(mask)
 
 
 class DualResize(object):

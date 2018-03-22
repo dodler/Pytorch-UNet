@@ -5,6 +5,7 @@ import os.path as osp
 import time
 from PIL import Image
 import cv2
+import numpy as np
 
 
 class InMemoryImgSegmDataset(Dataset):
@@ -58,10 +59,10 @@ class InMemoryImgSegmDataset(Dataset):
         for i in range(target_len):
             base_name = self.train[i].split('.')[0]  # name without extension
             im_p = osp.join(self._path, self._img_path, base_name + '.jpg')
-            img = cv2.imread(im_p)
+            img = cv2.imread(im_p).astype(np.float32)
             self._train_images.append(img.copy())
             m_p = osp.join(self._path, self._mask_path, base_name + '.png')
-            mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE)
+            mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32)
             mask[mask == 29] = 1
             self._train_masks.append(mask)
 
@@ -73,10 +74,11 @@ class InMemoryImgSegmDataset(Dataset):
         for i in range(target_len):
             base_name = self.test[i].split('.')[0]  # name without extension
             im_p = osp.join(self._path, self._img_path, base_name + '.jpg')
-            img = cv2.imread(im_p)
+            img = cv2.imread(im_p).astype(np.float32)
             self._test_images.append(img.copy())
             m_p = osp.join(self._path, self._mask_path, base_name + '.png')
-            mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE)
+            print(m_p)
+            mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32)
             mask[mask == 29] = 1
             self._test_masks.append(mask)
 
