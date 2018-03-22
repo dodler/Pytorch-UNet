@@ -86,8 +86,8 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
             y = b[1]
 
             if gpu and torch.cuda.is_available():
-                X = Variable(X).cuda(gpu_id)
-                y = Variable(y).cuda(gpu_id)
+                X = Variable(X).cuda()
+                y = Variable(y).cuda()
             else:
                 X = Variable(X)
                 y = Variable(y)
@@ -144,14 +144,17 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    net = UNet(3, 1)
+    if options.gpu and torch.cuda.is_available() and len(gpu_id) > 1:
+        net = torch.nn.DataParallel(UNet(3, 1)).cuda()
+    else:
+        net = UNet(3, 1)
 
     if options.restore:
         net.load_state_dict(torch.load('INTERRUPTED.pth'))
         print('Model loaded from {}'.format('interrupted.pth'))
 
     if options.gpu and torch.cuda.is_available():
-        net.cuda(gpu_id)
+        net.cuda(gpu_id[0])
         cudnn.benchmark = True
 
     try:
