@@ -50,8 +50,7 @@ test_transform = DualCompose([
 
 dataset = InMemoryImgSegmDataset(DATA,
                                  'original', 'mask',
-                                 train_transform, test_transform,
-                                 limit_len=50)
+                                 train_transform, test_transform)
 loader = DataLoader(dataset, batch_size=BATCH_SIZE)
 
 train_len = len(dataset)
