@@ -3,13 +3,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
+from tqdm import *
 
-from config import gpu_id
 from config import USE_MATPLOTLIB_VIS
 from myloss import dice_coeff
 from utils import dense_crf
-
-from tqdm import *
 
 
 def eval_net(net, dataset, gpu=False):

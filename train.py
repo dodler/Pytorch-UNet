@@ -15,6 +15,7 @@ from config import CHECKPOINT_DIR
 from config import DATA
 from config import PER_ITER_LOSS
 from config import RESIZE_TO
+from config import BATCH_SIZE
 from config import gpu_id
 from eval import eval_net
 from unet import UNet
@@ -51,7 +52,7 @@ dataset = InMemoryImgSegmDataset(DATA,
                                  'original', 'mask',
                                  train_transform, test_transform,
                                  limit_len=50)
-loader = DataLoader(dataset, batch_size=1)
+loader = DataLoader(dataset, batch_size=BATCH_SIZE)
 
 train_len = len(dataset)
 dataset.set_mode('val')
