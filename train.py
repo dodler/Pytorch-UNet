@@ -8,23 +8,27 @@ import torch.nn.functional as F
 from torch import optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor, Normalize, Resize
+from torchvision.transforms import Normalize
 from tqdm import *
 
 import vis
-from config import DATA
-from config import gpu_id
 from config import CHECKPOINT_DIR
+from config import DATA
 from config import RESIZE_TO
+from config import gpu_id
+from config import PER_EPOCH_LOSS
+from config import PER_ITER_LOSS
 from eval import eval_net
 from unet import UNet
 from utils import *
-
-from utils.dualcrop import DualRotatePadded
-from utils.abstract import DualCompose, Dualized
-from utils.dataset import InMemoryImgSegmDataset
+from utils.abstract import DualCompose
 from utils.abstract import ImageOnly
+from utils.dataset import InMemoryImgSegmDataset
+from utils.dualcrop import DualRotatePadded
 from utils.util_transform import DualResize, DualToTensor
+from visualization.loss_watch import VisdomValueWatcher
+
+watch = VisdomValueWatcher()
 
 print(gpu_id)
 print(DATA)
@@ -72,16 +76,10 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
                           lr=lr, momentum=0.9, weight_decay=0.0005)
     criterion = nn.BCELoss()
 
-    epoch_dices = []
-    epoch_losses = []
-    epochs_p = []
-
     for epoch_num in range(epochs):
         print('Starting epoch {}/{}.'.format(epoch_num + 1, epochs))
 
         epoch_loss = 0
-        it_losses = []
-        its = []
         dataset.set_mode('train')
         for i, b in tqdm(enumerate(loader)):
             print('batch',len(b))
@@ -115,13 +113,13 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
             loss = criterion(probs_flat, y_flat.float())
             # epoch_loss += loss.data[0]
 
-            # it_losses.append(loss.data[0])
+            watch.add_value(PER_ITER_LOSS, loss.cpu().data[0])
 
             # its.append(i)
 
             # vis.plot_loss(np.array(its), np.array(it_losses), 'iteration losses')
 
-            print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / N_train,
+            print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / len(dataset),
                                                      loss.data[0]))
 
             optimizer.zero_grad()
@@ -132,9 +130,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
 
         print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
 
-        epochs_p.append(epoch_num)
-        epoch_losses.append(np.mean(np.array(it_losses)))
-        vis.plot_loss(np.array(epochs_p), np.array(epoch_losses), 'epoch losses')
+        watch.output()
 
         dataset.set_mode('val')
         val_dice = eval_net(net, dataset, gpu)
