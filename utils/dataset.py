@@ -39,7 +39,7 @@ class InMemoryImgSegmDataset(Dataset):
         self._mode = mode
 
     def __len__(self):
-        if self._limit_len != 1:
+        if self._limit_len != -1:
             return self._limit_len
         elif self._mode == 'train':
             return len(self.train)
@@ -50,7 +50,6 @@ class InMemoryImgSegmDataset(Dataset):
         return self.getitemfrom(index)
 
     def load(self):
-
         if self._limit_len != -1:
             target_len = self._limit_len
         else:

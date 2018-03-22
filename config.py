@@ -1,4 +1,4 @@
-gpu_id = [0,1,2,3]
+gpu_id = [4,5]
 DATA = '/home/ubuntu/recognition/data/masks_clean/HAIR/'
 #DATA = '/home/dev/Documents/HAIR/'
 CHECKPOINT_DIR = 'checkpoints'
