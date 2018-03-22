@@ -110,7 +110,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
 
             y_flat = y.view(-1)
 
-            display_every_iter(X, i, y, probs, watch.get_vis())
+            display_every_iter(i ,X , y, probs, watch.get_vis())
             loss = criterion(probs_flat, y_flat.float())
 
             watch.add_value(PER_ITER_LOSS, loss.cpu().data[0])
