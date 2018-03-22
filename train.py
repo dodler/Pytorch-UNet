@@ -103,8 +103,8 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
             y = b[1]
 
             if gpu and torch.cuda.is_available():
-                X = Variable(X).cuda(gpu_id[0])
-                y = Variable(y).cuda(gpu_id[0])
+                X = Variable(X, volatile=True).cuda(gpu_id[0])
+                y = Variable(y, volatile=True).cuda(gpu_id[0])
             else:
                 X = Variable(X)
                 y = Variable(y)
