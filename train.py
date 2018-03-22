@@ -1,41 +1,61 @@
+import sys
+from optparse import OptionParser
+
 import torch
 import torch.backends.cudnn as cudnn
-import torch.nn.functional as F
 import torch.nn as nn
+import torch.nn.functional as F
+from torch import optim
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+from torchvision.transforms import ToTensor, Normalize, Resize
+from tqdm import *
 
 import vis
-
-from utils import dense_crf
-
-from utils import *
-from myloss import DiceLoss
+from config import DATA
+from config import gpu_id
+from config import CHECKPOINT_DIR
+from config import RESIZE_TO
 from eval import eval_net
 from unet import UNet
-from torch.autograd import Variable
-from torch import optim
-from optparse import OptionParser
-import sys
-import os
-import os.path as osp
-from torch.nn import Upsample
+from utils import *
 
-from config import gpu_id
-from config import DATA
+from utils.dualcrop import DualRotatePadded
+from utils.abstract import DualCompose, Dualized
+from utils.dataset import InMemoryImgSegmDataset
+from utils.abstract import ImageOnly
 
 print(gpu_id)
 print(DATA)
 
-def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
-              cp=True, gpu=False):
-    dir_img = osp.join(DATA,'images/')
-    dir_mask = osp.join(DATA, 'mask/')
-    dir_checkpoint = 'checkpoints/'
+rgb_mean = (0.4914, 0.4822, 0.4465)
+rgb_std = (0.2023, 0.1994, 0.2010)
 
-    ids = get_ids(dir_img)
-    ids = split_ids(ids)
+train_transform = DualCompose([
+    Dualized(Resize((RESIZE_TO, RESIZE_TO))),
+    DualRotatePadded(30),
+    Dualized(ToTensor()),
+    ImageOnly(Normalize(rgb_mean, rgb_std))])
 
-    iddataset = split_train_val(ids, val_percent)
+test_transform = DualCompose([
+    Dualized(Resize((RESIZE_TO, RESIZE_TO))),
+    Dualized(ToTensor()),
+    ImageOnly(Normalize(rgb_mean, rgb_std))
+])
 
+dataset = InMemoryImgSegmDataset(DATA,
+                                 'original', 'mask',
+                                 train_transform, test_transform,
+                                 limit_len=50)
+loader = DataLoader(dataset, batch_size=1)
+
+train_len = len(dataset)
+dataset.set_mode('val')
+val_len = len(dataset)
+dataset.set_mode('train')
+
+
+def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
     print('''
     Starting training:
         Epochs: {}
@@ -45,13 +65,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
         Validation size: {}
         Checkpoints: {}
         CUDA: {}
-    '''.format(epochs, batch_size, lr, len(iddataset['train']),
-               len(iddataset['val']), str(cp), str(gpu)))
-
-    N_train = len(iddataset['train'])
-
-    train = get_imgs_and_masks(iddataset['train'], dir_img, dir_mask)
-    val = get_imgs_and_masks(iddataset['val'], dir_img, dir_mask)
+    '''.format(epochs, batch_size, lr, train_len, val_len, str(cp), str(gpu)))
 
     optimizer = optim.SGD(net.parameters(),
                           lr=lr, momentum=0.9, weight_decay=0.0005)
@@ -61,19 +75,17 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
     epoch_losses = []
     epochs_p = []
 
-    for epoch in range(epochs):
-        print('Starting epoch {}/{}.'.format(epoch+1, epochs))
-        train = get_imgs_and_masks(iddataset['train'], dir_img, dir_mask)
-        val = get_imgs_and_masks(iddataset['val'], dir_img, dir_mask)
+    for epoch_num in range(epochs):
+        print('Starting epoch {}/{}.'.format(epoch_num + 1, epochs))
 
         epoch_loss = 0
         it_losses = []
         its = []
-#        if 1:
-#            val_dice = eval_net(net, val, gpu)
-#            print('Validation Dice Coeff: {}'.format(val_dice))
-
-        for i, b in enumerate(batch(train, batch_size)):
+        #        if 1:
+        #            val_dice = eval_net(net, val, gpu)
+        #            print('Validation Dice Coeff: {}'.format(val_dice))
+        dataset.set_mode('train')
+        for i, b in tqdm(loader):
             X = np.array([i[0] for i in b])
             y = np.array([i[1] for i in b])
 
@@ -94,10 +106,10 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
 
             if i % 50 == 0:
                 img = X.data.squeeze(0).cpu().numpy()[0]
-#                img = np.transpose(img, axes=[1, 2, 0])
+                #                img = np.transpose(img, axes=[1, 2, 0])
                 mask = y.data.squeeze(0).cpu().numpy()[0]
                 pred = (F.sigmoid(y_pred) > 0.8).float().data.squeeze(0).cpu().numpy()[0]
-#                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
+                #                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
                 vis.show(img, mask, pred, 'image - mask - predict - densecrf')
 
             y_flat = y.view(-1)
@@ -111,7 +123,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
 
             vis.plot_loss(np.array(its), np.array(it_losses), 'iteration losses')
 
-            print('{0:.4f} --- loss: {1:.6f}'.format(i*batch_size/N_train,
+            print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / N_train,
                                                      loss.data[0]))
 
             optimizer.zero_grad()
@@ -120,23 +132,23 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, val_percent=0.05,
 
             optimizer.step()
 
-        print('Epoch finished ! Loss: {}'.format(epoch_loss/i))
+        print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
 
-        epochs_p.append(e)
+        epochs_p.append(epoch_num)
         epoch_losses.append(np.mean(np.array(it_losses)))
         vis.plot_loss(np.array(epochs_p), np.array(epoch_losses), 'epoch losses')
 
-        val_dice = eval_net(net, val, gpu)
+        dataset.set_mode('val')
+        val_dice = eval_net(net, dataset, gpu)
 
         vis.plot_loss(epoch_dices, 'epoch dices')
         print('Validation Dice Coeff: {}'.format(val_dice))
 
-
         if cp:
             torch.save(net.state_dict(),
-                       dir_checkpoint + 'CP{}_loss{}.pth'.format(epoch+1, loss.data[0]))
+                       CHECKPOINT_DIR + 'CP{}_loss{}.pth'.format(epoch_num + 1, loss.data[0]))
 
-            print('Checkpoint {} saved !'.format(epoch+1))
+            print('Checkpoint {} saved !'.format(epoch_num + 1))
 
 
 if __name__ == '__main__':
@@ -156,11 +168,11 @@ if __name__ == '__main__':
 
     net = UNet(3, 1)
 
-#    if options.load:
-#    net.load_state_dict(torch.load('INTERRUPTED.pth'))
-#    print('Model loaded from {}'.format('interrupted.pth'))
+    #    if options.load:
+    #    net.load_state_dict(torch.load('INTERRUPTED.pth'))
+    #    print('Model loaded from {}'.format('interrupted.pth'))
 
-    if options.gpu:
+    if options.gpu and torch.cuda.is_available():
         net.cuda(gpu_id)
         cudnn.benchmark = True
 

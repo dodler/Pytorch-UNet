@@ -1,20 +1,20 @@
-import torch
-from myloss import dice_coeff
-import numpy as np
-from torch.autograd import Variable
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 import torch.nn.functional as F
-
-from utils import dense_crf, plot_img_mask
-
-import vis
+from torch.autograd import Variable
 
 from config import gpu_id
-from config import DATA
+from config import USE_MATPLOTLIB_VIS
+from myloss import dice_coeff
+from utils import dense_crf
+
+from tqdm import *
+
 
 def eval_net(net, dataset, gpu=False):
     tot = 0
-    for i, b in enumerate(dataset):
+    for i, b in tqdm(enumerate(dataset)):
         X = b[0]
         y = b[1]
 
@@ -31,13 +31,13 @@ def eval_net(net, dataset, gpu=False):
         y_pred = net(X)
 
         y_pred = (F.sigmoid(y_pred) > 0.3).float()
-#        print(y_pred.size())
-#        print(y.size())
+        #        print(y_pred.size())
+        #        print(y.size())
 
         dice = dice_coeff(y_pred, y.float()).data[0]
         tot += dice
 
-        if 0:
+        if USE_MATPLOTLIB_VIS:
             X = X.data.squeeze(0).cpu().numpy()
             X = np.transpose(X, axes=[1, 2, 0])
             y = y.data.squeeze(0).cpu().numpy()
@@ -51,7 +51,7 @@ def eval_net(net, dataset, gpu=False):
             ax3 = fig.add_subplot(1, 4, 3)
             ax3.imshow((y_pred > 0.5))
 
-            Q = dense_crf(((X*255).round()).astype(np.uint8), y_pred)
+            Q = dense_crf(((X * 255).round()).astype(np.uint8), y_pred)
             ax4 = fig.add_subplot(1, 4, 4)
             print(Q)
             ax4.imshow(Q > 0.5)

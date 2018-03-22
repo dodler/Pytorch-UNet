@@ -1,14 +1,14 @@
 import os
 import os.path as osp
-import PIL
+
 from PIL import Image
 
-DATA = '/home/ubuntu/recognition/data/masks_clean/HAIR/mask/'
+from config import DATA
 
-files = os.listdir(DATA)
+files = os.listdir(osp.join(DATA, 'mask'))
 
-files = [k for k in files if '.jpg' in k]
+files = [k for k in files if '.ppm' in k]
 
 for f in files:
-    img = Image.open(osp.join(DATA, f))
-    img.save(osp.join(DATA, f.split('.')[0] + '.png'), 'PNG')
+    img = Image.open(osp.join(DATA, 'mask', f))
+    img.save(osp.join(DATA, 'mask', f.split('.')[0] + '.png'), 'PNG')
