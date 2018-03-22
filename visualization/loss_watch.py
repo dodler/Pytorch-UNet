@@ -8,6 +8,9 @@ class VisdomValueWatcher(object):
         self._wins = {}
         self._vis = visdom.Visdom()
 
+    def get_vis(self):
+        return self._vis
+
     def add_value(self, name, value):
         if name in self._watchers.keys():
             self._watchers[name].append(value)

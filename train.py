@@ -11,13 +11,11 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize
 from tqdm import *
 
-import vis
 from config import CHECKPOINT_DIR
 from config import DATA
+from config import PER_ITER_LOSS
 from config import RESIZE_TO
 from config import gpu_id
-from config import PER_EPOCH_LOSS
-from config import PER_ITER_LOSS
 from eval import eval_net
 from unet import UNet
 from utils import *
@@ -27,6 +25,7 @@ from utils.dataset import InMemoryImgSegmDataset
 from utils.dualcrop import DualRotatePadded
 from utils.util_transform import DualResize, DualToTensor
 from visualization.loss_watch import VisdomValueWatcher
+from visualization.visdom_helper import display_every_iter
 
 watch = VisdomValueWatcher()
 
@@ -82,7 +81,6 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
         epoch_loss = 0
         dataset.set_mode('train')
         for i, b in tqdm(enumerate(loader)):
-            print('batch',len(b))
 
             X = b[0]
             y = b[1]
@@ -94,30 +92,15 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
                 X = Variable(X)
                 y = Variable(y)
 
-            print('doing forward')
-            y_pred = net(X)
-
-            probs = F.sigmoid(y_pred)
+            probs = F.sigmoid(net(X))
             probs_flat = probs.view(-1)
-
-            # if i % 50 == 0:
-            #     img = X.data.squeeze(0).cpu().numpy()[0]
-            #     #                img = np.transpose(img, axes=[1, 2, 0])
-            #     mask = y.data.squeeze(0).cpu().numpy()[0]
-            #     pred = (F.sigmoid(y_pred) > 0.8).float().data.squeeze(0).cpu().numpy()[0]
-            #     #                Q = dense_crf(((img*255).round()).astype(np.uint8), pred)
-            #     vis.show(img, mask, pred, 'image - mask - predict - densecrf')
 
             y_flat = y.view(-1)
 
+            display_every_iter(X, i, y, probs, watch.get_vis())
             loss = criterion(probs_flat, y_flat.float())
-            # epoch_loss += loss.data[0]
 
             watch.add_value(PER_ITER_LOSS, loss.cpu().data[0])
-
-            # its.append(i)
-
-            # vis.plot_loss(np.array(its), np.array(it_losses), 'iteration losses')
 
             print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / len(dataset),
                                                      loss.data[0]))
@@ -135,7 +118,6 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
         dataset.set_mode('val')
         val_dice = eval_net(net, dataset, gpu)
 
-        # vis.plot_loss(epoch_dices, 'epoch dices')
         print('Validation Dice Coeff: {}'.format(val_dice))
 
         if cp:
@@ -157,14 +139,16 @@ if __name__ == '__main__':
                       default=True, help='use cuda')
     parser.add_option('-c', '--load', dest='load',
                       default=False, help='load file model')
+    parser.add_option('-r', '--restore', dest='restore', default=False,
+                      help='Restore model from saved INTERRUPTED.pth')
 
     (options, args) = parser.parse_args()
 
     net = UNet(3, 1)
 
-    #    if options.load:
-    #    net.load_state_dict(torch.load('INTERRUPTED.pth'))
-    #    print('Model loaded from {}'.format('interrupted.pth'))
+    if options.restore:
+        net.load_state_dict(torch.load('INTERRUPTED.pth'))
+        print('Model loaded from {}'.format('interrupted.pth'))
 
     if options.gpu and torch.cuda.is_available():
         net.cuda(gpu_id)
