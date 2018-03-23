@@ -21,8 +21,8 @@ def eval_net(net, dataset, gpu=False):
         y = torch.ByteTensor(y).unsqueeze(0)
 
         if gpu:
-            X = Variable(X, volatile=True).cuda(gpu_id[0])
-            y = Variable(y, volatile=True).cuda(gpu_id[0])
+            X = Variable(X).cuda()
+            y = Variable(y).cuda()
         else:
             X = Variable(X, volatile=True)
             y = Variable(y, volatile=True)

@@ -49,7 +49,7 @@ test_transform = DualCompose([
 ])
 
 dataset = InMemoryImgSegmDataset(DATA,
-                                 'original', 'mask',
+                                 'images','masks',
                                  train_transform, test_transform)
 loader = DataLoader(dataset, batch_size=BATCH_SIZE)
 
@@ -58,6 +58,7 @@ dataset.set_mode('val')
 val_len = len(dataset)
 dataset.set_mode('train')
 
+print('config batch size:',BATCH_SIZE)
 
 def data_parallel(module, input, device_ids, output_device=None):
     if not device_ids:
@@ -74,7 +75,7 @@ def data_parallel(module, input, device_ids, output_device=None):
 
 
 upsample = torch.nn.Upsample(size=(RESIZE_TO, RESIZE_TO))
-
+sigmoid = torch.nn.Sigmoid()
 
 def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
     print('''
@@ -90,7 +91,7 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
 
     optimizer = optim.SGD(net.parameters(),
                           lr=lr, momentum=0.9, weight_decay=0.0005)
-    criterion = nn.BCELoss()
+    criterion = nn.BCELoss().cuda()
 
     for epoch_num in range(epochs):
         print('Starting epoch {}/{}.'.format(epoch_num + 1, epochs))
@@ -103,21 +104,21 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
             y = b[1]
 
             if gpu and torch.cuda.is_available():
-                X = Variable(X, volatile=True).cuda()
-                y = Variable(y, volatile=True).cuda()
+                X = Variable(X).cuda()
+                y = Variable(y).cuda()
             else:
                 X = Variable(X)
                 y = Variable(y)
 
-            probs = F.sigmoid(upsample(net(X)))
+            probs = net(X)
+            print(probs.size(), y.size())
             probs_flat = probs.view(-1)
-
             y_flat = y.view(-1)
 
             display_every_iter(i, X, y, probs, watch.get_vis())
             loss = criterion(probs_flat, y_flat.float())
-
             watch.add_value(PER_ITER_LOSS, loss.cpu().data[0])
+            watch.output(PER_ITER_LOSS)
 
             print('{0:.4f} --- loss: {1:.6f}'.format(i * batch_size / len(dataset),
                                                      loss.data[0]))
@@ -125,12 +126,12 @@ def train_net(net, epochs=5, batch_size=8, lr=0.1, cp=True, gpu=False):
             optimizer.zero_grad()
 
             loss.backward()
-
+            print('backwar done')
             optimizer.step()
+            print('optimizer step done')
 
         print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
 
-        watch.output()
         dataset.set_mode('val')
         net.eval()
         val_dice = eval_net(net, dataset, gpu)
@@ -162,15 +163,17 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
 
-    net = nn.DataParallel(UNet(3, 1), device_ids=gpu_id)
+    print(gpu_id)
+    net = nn.DataParallel(UNet(3, 1).cuda())
+#    net = UNet(3, 1).cuda()
 
     if options.restore:
         net.load_state_dict(torch.load('INTERRUPTED.pth'))
         print('Model loaded from {}'.format('interrupted.pth'))
 
-    if options.gpu and torch.cuda.is_available():
-        net.cuda()
-        cudnn.benchmark = True
+#    if options.gpu and torch.cuda.is_available():
+#        net.cuda()
+#        cudnn.benchmark = True
 
     try:
         train_net(net, options.epochs, options.batchsize, options.lr,

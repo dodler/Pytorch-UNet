@@ -6,7 +6,7 @@ import time
 from PIL import Image
 import cv2
 import numpy as np
-
+from tqdm import *
 
 class InMemoryImgSegmDataset(Dataset):
     def __init__(self, path, img_path, mask_path,
@@ -50,19 +50,20 @@ class InMemoryImgSegmDataset(Dataset):
         return self.getitemfrom(index)
 
     def load(self):
+        print('start loading')
         if self._limit_len != -1:
             target_len = self._limit_len
         else:
             target_len = len(self.train)
 
-        for i in range(target_len):
+        for i in tqdm(range(target_len)):
             base_name = self.train[i].split('.')[0]  # name without extension
             im_p = osp.join(self._path, self._img_path, base_name + '.jpg')
-            img = cv2.imread(im_p).astype(np.float32)
+            img = cv2.resize(cv2.imread(im_p), dsize=(1024,1024)).astype(np.float32)
             self._train_images.append(img.copy())
-            m_p = osp.join(self._path, self._mask_path, base_name + '.png')
-            mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32)
-            mask[mask == 29] = 1
+            m_p = osp.join(self._path, self._mask_path, base_name + '_segmentation.png')
+            mask = cv2.resize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE), dsize=(1024,1024)).astype(np.float32)
+            mask[mask > 0] = 1
             self._train_masks.append(mask)
 
         if self._limit_len != -1:
@@ -70,14 +71,14 @@ class InMemoryImgSegmDataset(Dataset):
         else:
             target_len = len(self.test)
 
-        for i in range(target_len):
+        for i in tqdm(range(target_len)):
             base_name = self.test[i].split('.')[0]  # name without extension
             im_p = osp.join(self._path, self._img_path, base_name + '.jpg')
-            img = cv2.imread(im_p).astype(np.float32)
+            img = cv2.resize(cv2.imread(im_p),dsize=(1024,1024)).astype(np.float32)
             self._test_images.append(img.copy())
-            m_p = osp.join(self._path, self._mask_path, base_name + '.png')
-            mask = cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32)
-            mask[mask == 29] = 1
+            m_p = osp.join(self._path, self._mask_path, base_name + '_segmentation.png')
+            mask = cv2.resize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE),dsize=(1024,1024)).astype(np.float32)
+            mask[mask > 0] = 1 # replace with your own mask format, replace with parameter
             self._test_masks.append(mask)
 
     def getitemfrom(self, index):

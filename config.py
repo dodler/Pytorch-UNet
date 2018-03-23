@@ -1,5 +1,5 @@
-gpu_id = [4,5]
-DATA = '/home/ubuntu/recognition/data/masks_clean/HAIR/'
+gpu_id = [0,1]
+DATA ='/home/dhc/nevus_masks/train/'
 #DATA = '/home/dev/Documents/HAIR/'
 CHECKPOINT_DIR = 'checkpoints'
 USE_MATPLOTLIB_VIS = False

@@ -61,7 +61,7 @@ def rotate_crop_padded(image, sx, sy, angle, size):
 
 
 class DualRotatePadded(DualTransformer):
-    def __init__(self, max_angle, padding=6):
+    def __init__(self, max_angle, padding=0):
         super().__init__()
         self.max_angle = max_angle
         self.padding = padding

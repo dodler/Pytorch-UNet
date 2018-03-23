@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from config import RESIZE_TO
+
 # python 3 confusing imports :(
 from .unet_parts import *
 
@@ -22,6 +24,8 @@ class UNet(nn.Module):
         self.up3 = up(256, 64)
         self.up4 = up(128, 64)
         self.outc = outconv(64, n_classes)
+#        self.upsample = torch.nn.Upsample(size=(RESIZE_TO, RESIZE_TO))
+        self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -34,4 +38,6 @@ class UNet(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         x = self.outc(x)
+#        x = self.upsample(x)
+        x = self.sigmoid(x)
         return x
