@@ -21,14 +21,14 @@ class VisdomValueWatcher(object):
         for name in self._wins.keys():
             self._vis.line(Y=np.array(self._watchers[name]),
                            X=np.array(range(len(self._watchers[name]))),
-                           win=self._wins[name], update='append',
+                           win=self._wins[name], update='new',
                            opts=dict(title=name))
 
     def output(self, name):
         if name in self._wins.keys():
             self._vis.line(Y=np.array(self._watchers[name]),
                            X=np.array(range(len(self._watchers[name]))),
-                           win=self._wins[name], update='append',
+                           win=self._wins[name], update='new',
                            opts=dict(title=name))
         else:
             self._wins[name] = self._vis.line(Y=np.array(self._watchers[name]),
@@ -36,4 +36,4 @@ class VisdomValueWatcher(object):
                                               opts=dict(title=name))
 
     def clean(self, name):
-        self._watchers[name] = name
+        self._watchers[name] = []

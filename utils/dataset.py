@@ -8,6 +8,32 @@ import cv2
 import numpy as np
 from tqdm import *
 
+def binarize(mask):
+    mu = np.unique(mask)
+    if np.all(np.array_equal(mu, np.array([  0.,  76.], dtype=np.float32))):
+        t = mask.copy()
+        t[t == 76] = 1
+        return t
+    elif np.all(np.array_equal(mu, np.array([   0.,   29.,  150.], dtype=np.float32))):
+        t = mask.copy()
+        t[t > 29] = 0
+        t[t == 29] = 1
+        return t
+    elif np.all(np.array_equal(mu, np.array([   0.,   29.,  149.], dtype=np.float32))):
+        t = mask.copy()
+        t[t > 29] = 0
+        t[t == 29] = 1
+        return t
+    elif np.all(np.array_equal(mu, np.array([  0.,  29.,  76.], dtype=np.float32))):
+        t = mask.copy()
+        t[t == 29] = 1
+        t[t > 1] = 0
+        return t
+    else:
+        t = mask.copy()
+        t[t > 0] = 1
+        return t
+
 class InMemoryImgSegmDataset(Dataset):
     def __init__(self, path, img_path, mask_path,
                  train_transform, test_transform,
@@ -59,11 +85,13 @@ class InMemoryImgSegmDataset(Dataset):
         for i in tqdm(range(target_len)):
             base_name = self.train[i].split('.')[0]  # name without extension
             im_p = osp.join(self._path, self._img_path, base_name + '.jpg')
-            img = cv2.resize(cv2.imread(im_p), dsize=(1024,1024)).astype(np.float32)
+            img = cv2.imread(im_p).astype(np.float32)
             self._train_images.append(img.copy())
-            m_p = osp.join(self._path, self._mask_path, base_name + '_segmentation.png')
-            mask = cv2.resize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE), dsize=(1024,1024)).astype(np.float32)
-            mask[mask > 0] = 1
+            m_p = osp.join(self._path, self._mask_path, base_name + '.png')
+            mask = binarize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32))
+            if not np.all(np.equal(np.unique(mask), np.array([0,1], dtype=np.float32))):
+                print(m_p)
+
             self._train_masks.append(mask)
 
         if self._limit_len != -1:
@@ -74,11 +102,12 @@ class InMemoryImgSegmDataset(Dataset):
         for i in tqdm(range(target_len)):
             base_name = self.test[i].split('.')[0]  # name without extension
             im_p = osp.join(self._path, self._img_path, base_name + '.jpg')
-            img = cv2.resize(cv2.imread(im_p),dsize=(1024,1024)).astype(np.float32)
+            img = cv2.imread(im_p).astype(np.float32)
             self._test_images.append(img.copy())
-            m_p = osp.join(self._path, self._mask_path, base_name + '_segmentation.png')
-            mask = cv2.resize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE),dsize=(1024,1024)).astype(np.float32)
-            mask[mask > 0] = 1 # replace with your own mask format, replace with parameter
+            m_p = osp.join(self._path, self._mask_path, base_name + '.png')
+            mask = binarize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32))
+            if  not np.all(np.equal(np.unique(mask), np.array([0,1], dtype=np.float32))):
+                print('warning ',m_p,' is not binary')
             self._test_masks.append(mask)
 
     def getitemfrom(self, index):
