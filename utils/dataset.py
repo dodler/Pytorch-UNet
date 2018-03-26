@@ -43,7 +43,7 @@ class JsonSegmentationDataset(object):
             img_path = self._base + str(img_name)
 
             if not os.path.exists(img_path):
-                print(img_path)
+#                print(img_path)
                 missing_rate += 1
                 continue
             img = cv2.imread(img_path).astype(np.float32)
@@ -59,7 +59,7 @@ class JsonSegmentationDataset(object):
         print('missing rate:', missing_rate / float(len(self)))
 
     def __len__(self):
-        return len(list(self._raw_json.keys()))
+        return len(self._images)
 
     def __getitem__(self, index):
         return self._transform(self._images[index], self._masks[index])
