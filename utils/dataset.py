@@ -13,13 +13,55 @@ import json
 class JsonNamesProvider(object):
     def __init__(self, path2json):
         self._path2json = path2json
+        self._images = []
+        self._masks = []
         with open(path2json, 'r') as jsf:
             raw_json = json.load(jsf)
-            print('raw json:',raw_json)
             self.paths = raw_json.keys()
 
     def provide(self):
         return list(self.paths)
+
+
+class JsonSegmentationDataset(object):
+    def __init__(self, base, path2json):
+        self._path2json = path2json
+        self._base = base
+        self._images = []
+        self._masks = []
+        with open(path2json, 'r') as jsf:
+            self._raw_json = json.load(jsf)
+        self.load()
+
+    def load(self):
+        img_names = list(self._raw_json.keys())
+        missing_rate = 0
+        for i in tqdm(range(len(img_names))):
+            img_name = img_names[i]
+            mask_name = self._raw_json[img_name]
+            img_path = self._base + str(img_name)
+
+            if not os.path.exists(img_path):
+                print(img_path)
+                missing_rate += 1
+                continue
+            img = cv2.imread(img_path).astype(np.float32)
+
+            self._images.append(img.copy())
+            mask = binarize(cv2.imread(self._base+ mask_name,
+                                       cv2.IMREAD_GRAYSCALE).astype(np.float32))
+            if not np.all(np.equal(np.unique(mask), np.array([0, 1], dtype=np.float32))):
+                print(mask_name)
+
+            self._masks.append(mask.copy())
+        print('missing rate:', missing_rate / float(len(self)))
+
+
+    def __len__(self):
+        return len(list(self._raw_json.keys()))
+
+    def __getitem__(self, index):
+        return
 
 
 def binarize(mask):
