@@ -24,7 +24,8 @@ class JsonNamesProvider(object):
 
 
 class JsonSegmentationDataset(object):
-    def __init__(self, base, path2json):
+    def __init__(self, base, path2json, transform):
+        self._transform = transform
         self._path2json = path2json
         self._base = base
         self._images = []
@@ -48,20 +49,20 @@ class JsonSegmentationDataset(object):
             img = cv2.imread(img_path).astype(np.float32)
 
             self._images.append(img.copy())
-            mask = binarize(cv2.imread(self._base+ mask_name,
+            mask = binarize(cv2.imread(self._base + mask_name,
                                        cv2.IMREAD_GRAYSCALE).astype(np.float32))
             if not np.all(np.equal(np.unique(mask), np.array([0, 1], dtype=np.float32))):
                 print(mask_name)
 
             self._masks.append(mask.copy())
-        print('missing rate:', missing_rate / float(len(self)))
 
+        print('missing rate:', missing_rate / float(len(self)))
 
     def __len__(self):
         return len(list(self._raw_json.keys()))
 
     def __getitem__(self, index):
-        return
+        return self._transform(self._images[index], self._masks[index])
 
 
 def binarize(mask):
