@@ -7,24 +7,38 @@ from PIL import Image
 import cv2
 import numpy as np
 from tqdm import *
+import json
+
+
+class JsonNamesProvider(object):
+    def __init__(self, path2json):
+        self._path2json = path2json
+        with open(path2json, 'r') as jsf:
+            raw_json = json.load(jsf)
+            print('raw json:',raw_json)
+            self.paths = raw_json.keys()
+
+    def provide(self):
+        return list(self.paths)
+
 
 def binarize(mask):
     mu = np.unique(mask)
-    if np.all(np.array_equal(mu, np.array([  0.,  76.], dtype=np.float32))):
+    if np.all(np.array_equal(mu, np.array([0., 76.], dtype=np.float32))):
         t = mask.copy()
         t[t == 76] = 1
         return t
-    elif np.all(np.array_equal(mu, np.array([   0.,   29.,  150.], dtype=np.float32))):
+    elif np.all(np.array_equal(mu, np.array([0., 29., 150.], dtype=np.float32))):
         t = mask.copy()
         t[t > 29] = 0
         t[t == 29] = 1
         return t
-    elif np.all(np.array_equal(mu, np.array([   0.,   29.,  149.], dtype=np.float32))):
+    elif np.all(np.array_equal(mu, np.array([0., 29., 149.], dtype=np.float32))):
         t = mask.copy()
         t[t > 29] = 0
         t[t == 29] = 1
         return t
-    elif np.all(np.array_equal(mu, np.array([  0.,  29.,  76.], dtype=np.float32))):
+    elif np.all(np.array_equal(mu, np.array([0., 29., 76.], dtype=np.float32))):
         t = mask.copy()
         t[t == 29] = 1
         t[t > 1] = 0
@@ -34,9 +48,11 @@ def binarize(mask):
         t[t > 0] = 1
         return t
 
+
 class InMemoryImgSegmDataset(Dataset):
     def __init__(self, path, img_path, mask_path,
                  train_transform, test_transform,
+                 names_provider=None,
                  limit_len=-1):
         """
         :param path: path to directory with images and masks directories
@@ -54,7 +70,14 @@ class InMemoryImgSegmDataset(Dataset):
         self._train_transform = train_transform
         self._path = path
         self._mode = 'train'
-        self._img_paths = os.listdir(osp.join(path, img_path))
+
+        self._names_provider = names_provider
+
+        if names_provider is None:
+            self._img_paths = os.listdir(osp.join(path, img_path))
+        else:
+            self._img_paths = names_provider.provide()
+
         self.train, self.test = train_test_split(self._img_paths)
         self._limit_len = limit_len
         self._img_path = img_path
@@ -89,7 +112,7 @@ class InMemoryImgSegmDataset(Dataset):
             self._train_images.append(img.copy())
             m_p = osp.join(self._path, self._mask_path, base_name + '.png')
             mask = binarize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32))
-            if not np.all(np.equal(np.unique(mask), np.array([0,1], dtype=np.float32))):
+            if not np.all(np.equal(np.unique(mask), np.array([0, 1], dtype=np.float32))):
                 print(m_p)
 
             self._train_masks.append(mask)
@@ -106,8 +129,8 @@ class InMemoryImgSegmDataset(Dataset):
             self._test_images.append(img.copy())
             m_p = osp.join(self._path, self._mask_path, base_name + '.png')
             mask = binarize(cv2.imread(m_p, cv2.IMREAD_GRAYSCALE).astype(np.float32))
-            if  not np.all(np.equal(np.unique(mask), np.array([0,1], dtype=np.float32))):
-                print('warning ',m_p,' is not binary')
+            if not np.all(np.equal(np.unique(mask), np.array([0, 1], dtype=np.float32))):
+                print('warning ', m_p, ' is not binary')
             self._test_masks.append(mask)
 
     def getitemfrom(self, index):
