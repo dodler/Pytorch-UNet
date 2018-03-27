@@ -92,6 +92,7 @@ def dice_loss(input, target):
     return 1 - ((2. * intersection + smooth) /
               (iflat.sum() + tflat.sum() + smooth))
 
+
 def eval_net(net, epochs=5, batch_size=8):
     net.eval()
     print('evaluation started')
