@@ -1,7 +1,11 @@
 import sys
 from optparse import OptionParser
 
+from scipy.misc import imresize
+
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+import cv2
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -44,9 +48,6 @@ from config import RESTORE_FROM
 
 watch = VisdomValueWatcher()
 
-print(gpu_id)
-print(DATA)
-
 rgb_mean = (0.4914, 0.4822, 0.4465)
 rgb_std = (0.2023, 0.1994, 0.2010)
 
@@ -57,43 +58,31 @@ test_transform = DualCompose([
 ])
 
 jds = JsonSegmentationDataset(DATA, '/home/ubuntu/workdir/lyan/Pytorch-UNet/jsons/test.json', test_transform)
-loader = DataLoader(jds, batch_size=BATCH_SIZE)
+loader = DataLoader(jds, batch_size=1)
 
 print('config batch size:',BATCH_SIZE)
 
-def batch_iou(pred,target, n_classes=2):
-    blen = pred.size()[0]
-    riou = 0
-    for i in range(blen):
-        riou += iou(pred[i,:],target[i,:], n_classes)
-    return riou / blen
 
-def iou(pred, target, n_classes = 1):
-    ious = []
-    pred = pred.view(-1)
-    target = target.view(-1)
-
-    pred_inds = pred > 0.6
-    target_inds = target == 1
-    intersection = (pred_inds[target_inds]).long().sum().data.cpu()[0]  # Cast to long to prevent overflows
-    union = pred_inds.long().sum().data.cpu()[0] + target_inds.long().sum().data.cpu()[0] - intersection
-    return float(intersection) / (1e-05 + float(max(union, 1)))
-
-upsample = torch.nn.Upsample(size=(RESIZE_TO, RESIZE_TO))
-sigmoid = torch.nn.Sigmoid()
-
-def dice_loss(input, target):
-    smooth = 1.
-
-    iflat = input.view(-1)
-    tflat = target.view(-1)
-    intersection = (iflat * tflat).sum()
+def image_iou(predict_mask, mask, classes):
     
-    return 1 - ((2. * intersection + smooth) /
-              (iflat.sum() + tflat.sum() + smooth))
+    thresh = 0.5
+    predict_mask[predict_mask >thresh] = 1
+    predict_mask[predict_mask <= thresh] = 0
 
+    IOU = []
+    for i in range(classes):
+        intersection = ((mask == i) & (predict_mask == i)).sum()
+        if intersection == 0:
+            IOU.append(0)
+            continue
+        union = ((mask == i) | (predict_mask == i)).sum()
+        if union == 0:
+            IOU.append(-1)
+            continue
+        IOU.append(intersection / union)
+    return np.mean(np.array(IOU))
 
-def eval_net(net, epochs=5, batch_size=8):
+def eval_net(net):
     net.eval()
     print('evaluation started')
 
@@ -112,21 +101,14 @@ def eval_net(net, epochs=5, batch_size=8):
             y = Variable(y)
 
         probs = net(X)
-        probs_flat = probs.view(-1)
-        y_flat = y.view(-1)
-        display_every_iter(i, X, y, probs, watch.get_vis())
+        probs= probs.cpu().data.numpy().reshape((128,128))
+ #       cv2.resize(probs, dsize=(40,40), interpolation=cv2.INTER_CUBIC)
+        gt = y.cpu().data.numpy().reshape((128,128))
+#        gt = cv2.resize(gt, dsize=(40,40), interpolation=cv2.NEAREST)
 
-        dice = dice_coeff(probs_flat, y.float()).data[0]
-        iou_m = batch_iou(probs, y, 2)
+        avg_iou +=  image_iou(probs, gt, 2)
 
-        avg_iou += iou_m
-        avg_dice += dice
-
-        watch.add_value(PER_ITER_IOU, iou_m)
-        watch.output(PER_ITER_IOU)
-        watch.add_value(PER_ITER_DICE, dice)
-        watch.output(PER_ITER_DICE)
-    print('avg_iou:',avg_iou / float(i), ' avg_dice',avg_dice / float(i))
+    print('avg_iou:',avg_iou / float(i))
 
 if __name__ == '__main__':
 
@@ -134,10 +116,4 @@ if __name__ == '__main__':
     net.load_state_dict(torch.load(RESTORE_FROM))
     print('Model loaded from {}'.format(RESTORE_FROM))
 
-    try:
-        eval_net(net, EPOCH_NUM, BATCH_SIZE)
-    except KeyboardInterrupt:
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)
+    eval_net(net)

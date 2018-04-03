@@ -1,4 +1,4 @@
-gpu_id = [0,3,4]
+gpu_id = [0]
 DATA ='/home/ubuntu/recognition/data/masks_clean/HAIR/'
 #DATA = '/home/dev/Documents/HAIR/'
 CHECKPOINT_DIR = 'checkpoints'
@@ -10,7 +10,7 @@ PER_ITER_LOSS = 'per_iter_loss'
 PER_EPOCH_LOSS = 'per_epoch_loss'
 BASE_BATCH_SIZE = 4
 BATCH_SIZE = len(gpu_id) * BASE_BATCH_SIZE
-BATCH_SIZE=2
+BATCH_SIZE=1
 EPOCH_NUM = 200
 PER_ITER_DICE = 'per_iter_dice'
 PER_ITER_IOU = 'per_iter_iou'
