@@ -167,9 +167,9 @@ if __name__ == '__main__':
     net = nn.DataParallel(UNet(3, 1).cuda())
 #    net = UNet(3, 1).cuda()
 
-    if options.restore:
-        net.load_state_dict(torch.load('INTERRUPTED.pth'))
-        print('Model loaded from {}'.format('interrupted.pth'))
+#    if options.restore:
+    net.load_state_dict(torch.load('checkpointsCP7_loss0.11104314774274826.pth'))
+    print('Model loaded from {}'.format('interrupted.pth'))
 
 #    if options.gpu and torch.cuda.is_available():
 #        net.cuda()
