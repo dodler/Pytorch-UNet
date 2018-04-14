@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from tqdm import *
@@ -13,6 +14,8 @@ from config import gpu_id
 
 def eval_net(net, dataset, gpu=False):
     tot = 0
+    bce = 0
+    criterion = nn.BCELoss().cuda()
     for i, b in tqdm(enumerate(dataset)):
         X = b[0]
         y = b[1]
@@ -29,12 +32,14 @@ def eval_net(net, dataset, gpu=False):
 
         y_pred = net(X)
 
-        y_pred = (F.sigmoid(y_pred) > 0.3).float()
+        y_pred = (F.sigmoid(y_pred) > 0.6).float()
         #        print(y_pred.size())
         #        print(y.size())
 
         dice = dice_coeff(y_pred, y.float()).data[0]
         tot += dice
+
+        bce += criterion(y_pred.view(-1).float(), y.float()).cpu().data[0]
 
         if USE_MATPLOTLIB_VIS:
             X = X.data.squeeze(0).cpu().numpy()
@@ -55,4 +60,5 @@ def eval_net(net, dataset, gpu=False):
             print(Q)
             ax4.imshow(Q > 0.5)
             plt.show()
-    return tot / i
+
+    return tot / float(i), bce /float(i)
